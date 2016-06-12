@@ -6,6 +6,19 @@ import bisect
 import json
 pygame.init()
 
+if len(sys.argv) < 3:
+    print "Annotator requires a folder full of sorted images and an output filename to write data too"
+    print
+    print "python ./annotator image_folder output.txt"
+    print
+    print "Nothing other than images can be in the image folder, and all images must be the same size."
+
+folder = sys.argv[1]
+outputFile = sys.argv[2]
+
+if os.path.exists(outputFile):
+    raise Exception("Output file {0} exists... Please delete before running the annotator".format(outputFile))
+
 size = width, height = 256, 256
 speed = [2, 2]
 black = 0, 0, 0
@@ -14,10 +27,18 @@ screen = pygame.display.set_mode(size)
 
 print "Loading images..."
 frames = []
+w_, h_ = None, None
 for fname in sorted(os.listdir('images')):
     im = skimage.io.imread('images/{0}'.format(fname), as_grey = True)
 
     w, h = ((256.0 / max(im.shape)) * numpy.array(im.shape)).astype('int')
+
+    if w_ == None or h_ == None:
+        w_ = w
+        h_ = h
+    else:
+        if w != w_ or h != h_:
+            raise Exception("Width of image [{0}] is not the same as all the others in the folder!".format(fname))
 
     im = skimage.transform.resize(im, (w, h))
 
@@ -37,7 +58,7 @@ yellowdot = pygame.image.load('yellowdot.png').convert_alpha()
 bluedot = pygame.image.load('bluedot.png').convert_alpha()
 
 clock = pygame.time.Clock()
-pygame.key.set_repeat(200, 50)
+pygame.key.set_repeat(200, 25)
 font = pygame.font.SysFont("monospace", 15)
 
 markers = []
@@ -142,7 +163,7 @@ while 1:
                         outputT.append(marker.sample(f_)[0])
                     output.append(outputT)
 
-                fh = open('output.txt', 'w')
+                fh = open(outputFile, 'w')
                 json.dump(output, fh)
                 fh.close()
 
