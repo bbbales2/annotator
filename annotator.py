@@ -4,58 +4,43 @@ import skimage.io, skimage.transform
 import numpy
 import bisect
 import json
+import argparse
+import imageio
 pygame.init()
 
-if len(sys.argv) < 3:
-    print "Annotator requires a folder full of sorted images and an output filename to write data too"
-    print
-    print "python ./annotator image_folder output.txt"
-    print
-    print "Nothing other than images can be in the image folder, and all images must be the same size."
+import argparse
 
-folder = sys.argv[1]
-outputFile = sys.argv[2]
+parser = argparse.ArgumentParser(description='Process some integers.')
+parser.add_argument('video', help = 'Path to video file (preferably .mp4) that contains frames to be annotated')
+parser.add_argument('classFile', help = 'File with newline separated list of class names')
+parser.add_argument('annotationFile', help = 'File that will hold the project annotations')
 
-if os.path.exists(outputFile):
-    raise Exception("Output file {0} exists... Please delete before running the annotator".format(outputFile))
+args = parser.parse_args()
+
+vid = imageio.get_reader(args.video, 'ffmpeg')
+
+classes = []
+with open(args.classFile) as f:
+    for line in f:
+        line = line.strip()
+
+        if len(line) > 0:
+            classes.append(line)
+
+F = vid.get_length()
+
+print "Reading in video file..."
+for f in range(F):
+    vid.get_data(f)
+print "Done!"
+
+W, H = vid.get_meta_data()['size']
 
 size = width, height = 256, 256
 speed = [2, 2]
 black = 0, 0, 0
 
-screen = pygame.display.set_mode(size)
-
-print "Loading images..."
-frames = []
-w_, h_ = None, None
-for fname in sorted(os.listdir('images')):
-    im = skimage.io.imread('images/{0}'.format(fname), as_grey = True)
-
-    w, h = ((256.0 / max(im.shape)) * numpy.array(im.shape)).astype('int')
-
-    if w_ == None or h_ == None:
-        w_ = w
-        h_ = h
-    else:
-        if w != w_ or h != h_:
-            raise Exception("Width of image [{0}] is not the same as all the others in the folder!".format(fname))
-
-    im = skimage.transform.resize(im, (w, h))
-
-    im = ((im / im.max()) * 255.0).astype('uint8')
-
-    im = numpy.array((im, im, im))
-
-    im = numpy.rollaxis(im, 1, 0)
-    im = numpy.rollaxis(im, 2, 1)
-
-    frames.append(pygame.surfarray.make_surface(im).convert())
-print "Images loaded!"
-
-reddot = pygame.image.load('reddot.png').convert_alpha()
-greendot = pygame.image.load('greendot.png').convert_alpha()
-yellowdot = pygame.image.load('yellowdot.png').convert_alpha()
-bluedot = pygame.image.load('bluedot.png').convert_alpha()
+screen = pygame.display.set_mode((W, H))
 
 clock = pygame.time.Clock()
 pygame.key.set_repeat(200, 25)
@@ -133,7 +118,7 @@ while 1:
             
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_RIGHT:
-                f = min(len(frames) - 1, (f + 1))
+                f = min(F - 1, (f + 1))
             elif event.key == pygame.K_LEFT:
                 f = max(0, (f - 1))
 
@@ -170,25 +155,26 @@ while 1:
     clock.tick(50)
 
     screen.fill(black)
-    screen.blit(frames[f], (0, 0))
+    
+    screen.blit(pygame.surfarray.make_surface(numpy.rollaxis(vid.get_data(f), 1, 0)).convert(), (0, 0))
 
-    for marker in markers:
-        (x, y), isRed = marker.sample(f)
-        dotcolor = None
-        if marker == selected:
-            if isRed:
-                dotcolor = reddot
-            else:
-                dotcolor = yellowdot
-        else:
-            if isRed:
-                dotcolor = bluedot
-            else:
-                dotcolor = greendot
+    #for marker in markers:
+    #    (x, y), isRed = marker.sample(f)
+    #    dotcolor = None
+    #    if marker == selected:
+    #        if isRed:
+    #            dotcolor = reddot
+    #        else:
+    #            dotcolor = yellowdot
+    #    else:
+    #        if isRed:
+    #            dotcolor = bluedot
+    #        else:
+    #            dotcolor = greendot
+    #
+    #    screen.blit(dotcolor, (x - 10, y - 10))
 
-        screen.blit(dotcolor, (x - 10, y - 10))
-
-    label = font.render("{0} / {1}".format(f, len(frames)), 1, (255, 255, 255))
+    label = font.render("{0} / {1}".format(f, F), 1, (255, 255, 255))
 
     screen.blit(label, (0, 240))
 
