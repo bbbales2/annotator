@@ -1,11 +1,14 @@
 import sys, pygame
 import os
-import skimage.io, skimage.transform
+import re
+#import skimage.io, skimage.transform
 import numpy
 import bisect
 import json
 import argparse
 import imageio
+import pickle
+
 pygame.init()
 
 import argparse
@@ -44,7 +47,11 @@ clock = pygame.time.Clock()
 pygame.key.set_repeat(200, 25)
 font = pygame.font.SysFont("monospace", 15)
 
-rects = []
+if os.path.exists(args.annotationFile):
+    with open(args.annotationFile) as fh:
+        rects = pickle.load(fh)
+else:
+    rects = []
 
 selected = None
 
@@ -52,8 +59,12 @@ f = 0
 
 state = None
 resize = False
-#'creating'
-ann = {}
+labeling = False
+
+s = 1
+step_sizes = [1, 5, 10, 15, 25, 50, 100]
+
+msg = ""
 
 while 1:
     for event in pygame.event.get():
@@ -65,15 +76,25 @@ while 1:
                 else:
                     resize = False
 
+                    msg = "Done resizing"
+
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if not selected:
                 for rect in rects:
                     if rect.contains(f, event.pos):
                         selected = rect
+
+                        if selected.label:
+                            msg = "{0} selected".format(selected.label)
+                        else:
+                            msg = "Selected keyframe"
                         break
 
                 if not selected:
+                    msg = "Adding keyframe"
+
                     print "Adding new keyframe"
+
                     selected = Rect(f, event.pos, (1, 1))
 
                     rects.append(selected)
@@ -81,10 +102,14 @@ while 1:
                     resize = True
             else:
                 if not selected.keyframe(f):
+                    msg = "Adding keyframe"
+
                     print "Adding keyframe to currently selected marker"
 
                     selected.add(f, event.pos, (1, 1))
                 else:
+                    msg = "Resizing keyframe"
+
                     print "Moving keyframe in currently selected marker"
 
                     selected.move(f, event.pos)
@@ -94,54 +119,98 @@ while 1:
             if resize == True:
                 resize = False
 
-            if event.button == 3:
-                dr = None
-
-                x_, y_ = event.pos
-
-                for marker in markers:
-                    for i in range(len(marker.fs)):
-                        dr_ = numpy.sqrt((marker.xs[i] - x_)**2 + (marker.ys[i] - y_)**2)
-
-                        if dr_ < dr or dr is None:
-                            selected = marker
-                            dr = dr_
+                msg = "Done resizing"
             
         if event.type == pygame.KEYDOWN:
+            if selected:
+                if event.key == pygame.K_BACKSPACE:
+                    if selected.label > 0:
+                        selected.label = selected.label[:-1]
+
+                    msg = "Modifying label (del)"
+                elif re.match("[A-Za-z]", event.unicode):
+                    if selected.label == None:
+                        selected.label = str(event.unicode)
+                    else:
+                        selected.label += str(event.unicode)
+
+                    msg = "Modifying label ({0})".format(event.unicode)
+
             if event.key == pygame.K_RIGHT:
-                f = min(F - 1, (f + 1))
+                if pygame.key.get_mods() & (pygame.KMOD_RCTRL | pygame.KMOD_LCTRL):
+                    if selected:
+                        i = bisect.bisect_right(selected.fs, f)
+
+                        if i != len(selected.fs):
+                            f = selected.fs[i]
+                        else:
+                            f = F - 1
+                    else:
+                        f = F - 1
+                else:
+                    f = min(F - 1, (f + s))
+
+                msg = "Nav right"
             elif event.key == pygame.K_LEFT:
-                f = max(0, (f - 1))
+                if pygame.key.get_mods() & (pygame.KMOD_RCTRL | pygame.KMOD_LCTRL):
+                    if selected:
+                        i = bisect.bisect_left(selected.fs, f) - 1
+
+                        if i >= 0 and i < len(selected.fs):
+                            f = selected.fs[i]
+                        else:
+                            f = 0
+                    else:
+                        f = 0
+                else:
+                    f = max(0, (f - s))
+
+                msg = "Nav left"
 
         if event.type == pygame.KEYUP:
-            if event.key in [pygame.K_ESCAPE, pygame.K_RETURN]:
+            if event.key == pygame.K_EQUALS or event.key == pygame.K_PLUS:
+                i = bisect.bisect_right(step_sizes, s)
+
+                if i < len(step_sizes):
+                    s = step_sizes[i]
+
+                msg = "Step size increased"
+            elif event.key == pygame.K_MINUS:
+                i = bisect.bisect_left(step_sizes, s) - 1
+
+                if i >= 0:
+                    s = step_sizes[i]
+                else:
+                    s = 1
+
+                msg = "Step size decreased"
+            elif event.key in [pygame.K_ESCAPE, pygame.K_RETURN]:
                 selected = None
-            elif event.key == pygame.K_d:
+            elif event.key == pygame.K_DELETE:
                 if selected:
                     if selected.delete(f):
+                        msg = "Removing keyframe"
                         print "Removing keyframe from selected marker"
                     else:
+                        msg = "No keyframe in frame"
                         print "No keyframes at current frame! (only yellow selections can be deleted -- not blues)"
 
                     if len(selected.fs) == 0:
-                        markers.remove(selected)
+                        rects.remove(selected)
                         selected = None
 
+                        msg = "Removing marker"
                         print "No keyframes left in marker... Removing marker"
                 else:
-                    print "No marker selected!"
-            elif event.key == pygame.K_w:
-                print "Output written!"
-                output = []
-                for f_ in range(len(frames)):
-                    outputT = []
-                    for marker in markers:
-                        outputT.append(marker.sample(f_)[0])
-                    output.append(outputT)
-
-                fh = open(outputFile, 'w')
-                json.dump(output, fh)
+                    msg = "No marker selected!"
+                    print msg
+            elif event.key == pygame.K_s and pygame.key.get_mods() & (pygame.KMOD_RCTRL | pygame.KMOD_LCTRL):
+                fh = open(args.annotationFile, 'w')
+                pickle.dump(rects, fh)
                 fh.close()
+
+                msg = "Output written!"
+                print msg
 
     clock.tick(50)
 
@@ -168,7 +237,13 @@ while 1:
         if rect == selected:
             color[2] = 255
 
+        if rect.label != None:
+            label = font.render(rect.label, 1, (255, 255, 255))
+        else:
+            label = font.render("no label", 1, (255, 0, 255))
+
         pygame.draw.rect(surf, color, ((x, y), (w, h)), 4)
+        surf.blit(label, (x, y - 15))
 
     screen.blit(surf.convert(), (0, 0))
 
@@ -188,8 +263,33 @@ while 1:
     #
     #    screen.blit(dotcolor, (x - 10, y - 10))
 
-    label = font.render("Frames: {0} / {1}".format(f, F), 1, (255, 255, 255))
+    lines = []
+    lines.append("Frame jump: {0}".format(s))
+    lines.append("Frames: {0} / {1}".format(f, F))
+    lines.append("")
 
-    screen.blit(label, (W, 0))
+    if selected:
+        lines.append("Keyframes: ")
+        for f_ in selected.fs:
+            lines.append("{0}".format(f_))
+
+        lines.append("")
+        lines.append("Type a-z to label")
+        lines.append("Del deletes keyframe")
+        lines.append("Click to move keyframe")
+        lines.append("Escape to unselect")
+
+    lines.append("")
+    lines.append("Ctrl-s saves")
+    lines.append("Arrows change frame")
+    lines.append("+/- adjust frame step")
+    lines.append("Ctrl-arrows fast jump")
+
+    lines.append("")
+    lines.append(msg)
+
+    for i, line in enumerate(lines):
+        label = font.render(line, 1, (255, 255, 255))
+        screen.blit(label, (W, 15 * i))
 
     pygame.display.flip()

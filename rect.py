@@ -9,6 +9,7 @@ class Rect(object):
         self.ws = [w]
         self.hs = [h]
         self.resize = False
+        self.label = None
 
     def add(self, f, (x, y), (w, h)):
         i = bisect.bisect_left(self.fs, f)
@@ -49,28 +50,29 @@ class Rect(object):
     def move(self, f, (x, y)):
         i = bisect.bisect_left(self.fs, f)
 
-        self.xs[i] = x
-        self.ys[i] = y
-
-    def setSecondCorner(self, f, (x, y)):
-        i = bisect.bisect_left(self.fs, f)
-
-        print (x, y)
-
-        if x <= self.xs[i]:
-            self.ws[i] = self.xs[i] + self.ws[i] - x
-            self.xs[i] = x
-        elif x <= self.xs[i] + self.ws[i]:
+        if numpy.abs(x - self.xs[i]) < numpy.abs(x - (self.xs[i] + self.ws[i])):
             self.ws[i] = self.ws[i] - (x - self.xs[i])
             self.xs[i] = x
         else:
             self.ws[i] = x - self.xs[i]
 
-        if y <= self.ys[i]:
-            self.hs[i] = self.ys[i] + self.hs[i] - y
-            self.ys[i] = y
-        elif y <= self.ys[i] + self.hs[i]:
+        if numpy.abs(y - self.ys[i]) < numpy.abs(y - (self.ys[i] + self.hs[i])):
             self.hs[i] = self.hs[i] - (y - self.ys[i])
+            self.ys[i] = y
+        else:
+            self.hs[i] = y - self.ys[i]
+
+    def setSecondCorner(self, f, (x, y)):
+        i = bisect.bisect_left(self.fs, f)
+
+        if numpy.abs(x - self.xs[i]) < numpy.abs(x - (self.xs[i] + self.ws[i])):
+            self.ws[i] = self.xs[i] + self.ws[i] - x
+            self.xs[i] = x
+        else:
+            self.ws[i] = x - self.xs[i]
+
+        if numpy.abs(y - self.ys[i]) < numpy.abs(y - (self.ys[i] + self.hs[i])):
+            self.hs[i] = self.ys[i] + self.hs[i] - y
             self.ys[i] = y
         else:
             self.hs[i] = y - self.ys[i]
