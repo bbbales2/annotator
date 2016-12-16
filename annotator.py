@@ -8,6 +8,10 @@ import json
 import argparse
 import imageio
 import pickle
+import googlenet
+import matplotlib.pyplot as plt
+import tensorflow as tf
+import sklearn.linear_model
 
 pygame.init()
 
@@ -40,6 +44,22 @@ F = vid.get_length()
 #print "Done!"
 
 W, H = vid.get_meta_data()['size']
+
+print "Loading nn"
+tf.reset_default_graph()
+
+sess = tf.Session()
+
+tens = tf.placeholder(tf.float32, shape = [1, H, W, 3])
+
+net = googlenet.GoogleNet({'data' : tens})
+
+net.load('googlenet.tf', sess, ignore_missing = True)
+
+target = [net.layers[name] for name in net.layers if name == 'inception_5b_output'][0]
+lgr = None
+
+print "nn loaded!"
 
 screen = pygame.display.set_mode((W + 200, H))
 
@@ -122,7 +142,7 @@ while 1:
                 msg = "Done resizing"
             
         if event.type == pygame.KEYDOWN:
-            if selected:
+            if selected and not (pygame.key.get_mods() & (pygame.KMOD_RCTRL | pygame.KMOD_LCTRL)):
                 if event.key == pygame.K_BACKSPACE:
                     if selected.label > 0:
                         selected.label = selected.label[:-1]
@@ -211,12 +231,73 @@ while 1:
 
                 msg = "Output written!"
                 print msg
+            elif event.key == pygame.K_t and pygame.key.get_mods() & (pygame.KMOD_RCTRL | pygame.KMOD_LCTRL):
+
+                msg = "Training network..."
+                print msg
+
+                classes = {}
+
+                Xs = []
+                Ys = []
+
+                for rect in rects:
+                    if rect.label not in classes:
+                        classes[rect.label] = len(classes)
+
+                    for f_ in rect.fs:
+                        im = vid.get_data(f_)
+                        
+                        feats = sess.run(target, feed_dict = { tens : im.reshape(1, im.shape[0], im.shape[1], im.shape[2]) })[0]
+
+                        (x, y), (w, h), keyframe = rect.sample(f_)
+
+                        if keyframe:
+                            i = int(y + h / 2) / 16
+                            j = int(x + w / 2) / 16
+
+                            Xs.append(feats[i, j])
+                            Ys.append(classes[rect.label])
+
+                        #for i in range(H / 16):
+                        #    for j in range(W / 16):
+                        #        if rect.contains(f_, (j * 16 + 8, i * 16 + 8)):
+                        #            Xs.append(feats[i, j])
+                        #            Ys.append(classes[rect.label])
+
+                lgr = sklearn.linear_model.LogisticRegression()
+
+                lgr.fit(Xs, Ys)
+
+                msg = "Network trained!"
+                print msg
 
     clock.tick(50)
 
     screen.fill((0, 0, 0))
 
-    surf = pygame.surfarray.make_surface(numpy.rollaxis(vid.get_data(f), 1, 0))
+    frame = vid.get_data(f)
+
+    surf = pygame.surfarray.make_surface(numpy.rollaxis(frame, 1, 0))
+
+    if lgr and selected and selected.label in classes:
+        hist = sess.run(target, feed_dict = { tens : frame.reshape(1, frame.shape[0], frame.shape[1], frame.shape[2]) })[0]#numpy.linalg.norm(, axis = 2)
+
+        hist = lgr.predict_log_proba(hist.reshape((-1, 1024))).reshape((H / 16, W / 16, -1))
+
+        hist = numpy.argmax(hist, axis = 2).astype('float')#hist[:, :, classes[selected.label]]
+
+        hist -= hist.min()
+        hist /= hist.max()
+        hist = plt.cm.jet(hist)[:, :, :3]
+        hist = (hist * 255).astype('uint8')
+        
+        hist = numpy.kron(hist, numpy.ones((16, 16, 1)))
+        
+        nn = pygame.surfarray.make_surface(numpy.rollaxis(hist, 1, 0))
+        nn.set_alpha(63)
+        
+        surf.blit(nn, (0, 0))
 
     for rect in rects:
         if rect.interpolated(f):
