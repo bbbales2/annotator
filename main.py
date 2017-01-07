@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 import annotate
 import neural
+import traceback
 
 pygame.init()
 
@@ -140,7 +141,16 @@ class Global(object):
 
                 msg = "Modules reloaded!"
                 print msg
+            elif event.key == pygame.K_F1:
+                self.selected = self.ann
+    
+                msg = "Annotator selected!"
+                print msg
+            elif event.key == pygame.K_F2:
+                self.selected = self.nn
 
+                msg = "Neural network seleced!"
+                print msg
         try:
             self.selected.handle(event, self)
         except Exception as e:
@@ -164,9 +174,12 @@ class Global(object):
                 rects = []
 
             self.ann = annotate.Annotator(rects)
-            self.nn = neural.Network(target)
+            self.nn = neural.Network(sess, target)
 
             self.selected = self.ann
+        except Exception as e:
+            raise e
+            #traceback.print_exc()
  
 g = Global(vid, screen, W, H)
 

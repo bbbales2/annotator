@@ -2,6 +2,10 @@ import numpy
 import bisect
 
 class Rect(object):
+    KEYFRAME = 1
+    INTERPOLATE = 2
+    EXTRAPOLATE = 3
+
     def __init__(self, f, (x, y), (w, h)):
         self.fs = [f]
         self.xs = [x]
@@ -96,6 +100,13 @@ class Rect(object):
         y = int(numpy.round(numpy.interp([f], self.fs, self.ys)))
         w = int(numpy.round(numpy.interp([f], self.fs, self.ws)))
         h = int(numpy.round(numpy.interp([f], self.fs, self.hs)))
-
-        return (x, y), (w, h), f in self.fs
+        
+        if f in self.fs:
+            return (x, y), (w, h), Rect.KEYFRAME
+        elif f > self.fs[0] and f < self.fs[-1]:
+            return (x, y), (w, h), Rect.INTERPOLATE
+        elif f < self.fs[0]:
+            return (self.xs[0], self.ys[0]), (self.ws[0], self.hs[0]), Rect.EXTRAPOLATE
+        elif f > self.fs[-1]:
+            return (self.xs[-1], self.ys[-1]), (self.ws[-1], self.hs[-1]), Rect.EXTRAPOLATE
 

@@ -2,7 +2,10 @@ import pygame
 import sklearn.linear_model
 
 class Network(object):
-    def __init__(self, target):
+    def __init__(self, sess, target):
+        self.sess = sess
+        self.target = target
+
         self.classes = {}
 
     def handle(self, event, g):
@@ -25,7 +28,7 @@ class Network(object):
                     for f_ in rect.fs:
                         im = g.vid.get_data(f_)
                         
-                        feats = sess.run(g.target, feed_dict = { tens : im.reshape(1, im.shape[0], im.shape[1], im.shape[2]) })[0]
+                        feats = self.sess.run(self.target, feed_dict = { tens : im.reshape(1, im.shape[0], im.shape[1], im.shape[2]) })[0]
 
                         (x, y), (w, h), keyframe = rect.sample(f_)
 
