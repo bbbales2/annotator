@@ -39,15 +39,15 @@ W, H = vid.get_meta_data()['size']
 #print "Loading nn"
 #tf.reset_default_graph()
 
-#sess = tf.Session()
+sess = tf.Session()
 
-#tens = tf.placeholder(tf.float32, shape = [1, H, W, 3])
+placeholder = tf.placeholder(tf.float32, shape = [1, H, W, 3])
 
-#net = googlenet.GoogleNet({'data' : tens})
+net = googlenet.GoogleNet({ 'data' : placeholder })
 
-#net.load('googlenet.tf', sess, ignore_missing = True)
+net.load('googlenet.tf', sess, ignore_missing = True)
 
-#target = [net.layers[name] for name in net.layers if name == 'inception_5b_output'][0]
+target = [net.layers[name] for name in net.layers if name == 'inception_5b_output'][0]
 
 #print "nn loaded!"
 
@@ -158,7 +158,9 @@ class Global(object):
 
     def draw(self):
         try:
-            self.selected.draw(self)
+            surf = self.selected.draw(self)
+
+            #self.screen.blit(surf, (0, 0))
         except Exception as e:
             traceback.print_exc()
 
@@ -174,7 +176,7 @@ class Global(object):
                 rects = []
 
             self.ann = annotate.Annotator(rects)
-            self.nn = neural.Network(sess, target)
+            self.nn = neural.Network(sess, target, placeholder)
 
             self.selected = self.ann
         except Exception as e:

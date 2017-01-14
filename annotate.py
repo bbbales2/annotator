@@ -128,7 +128,7 @@ class Annotator(object):
                 color = [0, 255, 0]
 
             if rtype == Rect.EXTRAPOLATE:
-                color = [255, 255, 255]
+                color = [150, 150, 150]
                 
             if rect == self.selected:
                 color[2] = 255
@@ -140,6 +140,18 @@ class Annotator(object):
 
             if rtype != Rect.EXTRAPOLATE or rect == self.selected:
                 width = 1 if rtype == Rect.EXTRAPOLATE else 4
+
+                li = y / 16
+                lj = x / 16
+
+                ri = (y + h) / 16
+                rj = (x + w) / 16
+
+                for xx in range(lj * 16, (rj + 1) * 16 + 1, 16):
+                    pygame.draw.line(surf, (255, 255, 255), (xx, li * 16), (xx, (ri + 1) * 16), 1)
+
+                for yy in range(li * 16, (ri + 1) * 16 + 1, 16):
+                    pygame.draw.line(surf, (255, 255, 255), (lj * 16, yy), ((rj + 1) * 16, yy), 1)
 
                 pygame.draw.rect(surf, color, ((x, y), (w, h)), width)
                 surf.blit(label, (x, y - 15))
