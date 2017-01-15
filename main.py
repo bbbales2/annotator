@@ -8,11 +8,8 @@ import json
 import argparse
 import imageio
 import pickle
-import googlenet
 import matplotlib.pyplot as plt
-import tensorflow as tf
 import annotate
-import neural
 import traceback
 
 pygame.init()
@@ -38,16 +35,6 @@ W, H = vid.get_meta_data()['size']
 
 #print "Loading nn"
 #tf.reset_default_graph()
-
-sess = tf.Session()
-
-placeholder = tf.placeholder(tf.float32, shape = [1, H, W, 3])
-
-net = googlenet.GoogleNet({ 'data' : placeholder })
-
-net.load('googlenet.tf', sess, ignore_missing = True)
-
-target = [net.layers[name] for name in net.layers if name == 'inception_5b_output'][0]
 
 #print "nn loaded!"
 
@@ -83,13 +70,16 @@ class Global(object):
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_RIGHT:
                 if ctrl_pressed:
-                    if self.ann.selected:
-                        i = bisect.bisect_right(self.ann.selected.fs, self.f)
+                    fs = []
+                    for f, _ in self.ann.labels:
+                        fs.append(f)
 
-                        if i != len(self.ann.selected.fs):
-                            self.f = self.ann.selected.fs[i]
-                        else:
-                            self.f = self.F - 1
+                    fs = sorted(fs)
+
+                    i = bisect.bisect_right(fs, g.f)
+
+                    if i < len(fs):
+                        self.f = fs[i]
                     else:
                         self.f = self.F - 1
                 else:
@@ -98,13 +88,16 @@ class Global(object):
                 msg = "Nav right"
             elif event.key == pygame.K_LEFT:
                 if ctrl_pressed:
-                    if self.ann.selected:
-                        i = bisect.bisect_left(self.ann.selected.fs, self.f) - 1
+                    fs = []
+                    for f, _ in self.ann.labels:
+                        fs.append(f)
 
-                        if i >= 0 and i < len(self.ann.selected.fs):
-                            self.f = self.ann.selected.fs[i]
-                        else:
-                            self.f = 0
+                    fs = sorted(fs)
+
+                    i = bisect.bisect_left(fs, g.f) - 1
+
+                    if i >= 0:
+                        self.f = fs[i]
                     else:
                         self.f = 0
                 else:
@@ -131,7 +124,7 @@ class Global(object):
                 msg = "Step size decreased"
             elif event.key == pygame.K_s and ctrl_pressed:
                 fh = open(args.annotationFile, 'w')
-                pickle.dump(self.ann.rects, fh)
+                pickle.dump(self.ann, fh)
                 fh.close()
 
                 msg = "Output written!"
@@ -145,11 +138,6 @@ class Global(object):
                 self.selected = self.ann
     
                 msg = "Annotator selected!"
-                print msg
-            elif event.key == pygame.K_F2:
-                self.selected = self.nn
-
-                msg = "Neural network seleced!"
                 print msg
         try:
             self.selected.handle(event, self)
@@ -167,16 +155,15 @@ class Global(object):
     def reload(self):
         try:
             reload(annotate)
-            reload(neural)
 
             if os.path.exists(args.annotationFile):
                 with open(args.annotationFile) as fh:
-                    rects = pickle.load(fh)
+                    try:
+                        self.ann = pickle.load(fh)
+                    except:
+                        self.ann = annotate.Annotator()
             else:
-                rects = []
-
-            self.ann = annotate.Annotator(rects)
-            self.nn = neural.Network(sess, target, placeholder)
+                self.ann = annotate.Annotator()
 
             self.selected = self.ann
         except Exception as e:

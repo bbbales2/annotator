@@ -2,106 +2,85 @@ import pygame
 from rect import Rect
 import numpy
 import re
+import collections
+
+def defaultGeom():
+    return [1, 1]
+    
+def defaultLabel():
+    return None
 
 class Annotator(object):
-    def __init__(self, rects = None):
-        if not rects:
-            self.rects = []
-        else:
-            self.rects = rects
-
-        self.resize = False
-        self.selected = False
+    def __init__(self):
+        self.selected = None
         self.msg = ""
+        self.b = 16
+        self.geoms = collections.defaultdict(defaultGeom)
+        self.labels = collections.defaultdict(defaultLabel) #1D, keyed by (frame, (i / b, j / b)), value is label
 
     def handle(self, event, g):
         ctrl_pressed = pygame.key.get_mods() & (pygame.KMOD_RCTRL | pygame.KMOD_LCTRL)
 
-        if event.type == pygame.MOUSEMOTION:
+        if event.type == pygame.MOUSEBUTTONUP:
+            bx = event.pos[0] / self.b
+            by = event.pos[1] / self.b
 
-            if self.resize == True:
-                if self.selected and self.selected.keyframe(g.f):
-                    self.selected.setSecondCorner(g.f, event.pos)
-                else:
-                    self.resize = False
+            key = (g.f, (bx, by))
 
-                    self.msg = "Done resizing"
+            if key in self.labels:
+                self.msg = "Selecting element"
+                print self.msg
 
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-            if not self.selected:
-                for rect in self.rects:
-                    if rect.contains(g.f, event.pos):
-                        self.selected = rect
-
-                        if self.selected.label:
-                            self.msg = "{0} selected".format(self.selected.label)
-                        else:
-                            self.msg = "Selected keyframe"
-                        break
-
-                if not self.selected:
-                    self.msg = "Adding keyframe"
-
-                    print "Adding new keyframe"
-
-                    self.selected = Rect(g.f, event.pos, (1, 1))
-
-                    self.rects.append(self.selected)
-                    
-                    self.resize = True
+                self.selected = key
             else:
-                if not self.selected.keyframe(g.f):
-                    self.msg = "Adding keyframe"
+                if self.selected and self.selected[0] == g.f:
+                    self.msg = "Moving element"
+                    print self.msg
 
-                    print "Adding keyframe to currently selected marker"
-
-                    self.selected.add(g.f, event.pos, (1, 1))
+                    self.labels[key] = self.labels[self.selected]
+                    del self.labels[self.selected]
                 else:
-                    self.msg = "Resizing keyframe"
+                    self.msg = "Adding element"
+                    print self.msg
+                    
+                    if self.selected:
+                        self.labels[key] = self.labels[self.selected]
+                    else:
+                        self.labels[key] = None
 
-                    print "Moving keyframe in currently selected marker"
-
-                    self.selected.move(g.f, event.pos)
-
-                self.resize = True
-        elif event.type == pygame.MOUSEBUTTONUP:
-            if self.resize == True:
-                self.resize = False
-
-                self.msg = "Done resizing"
+                self.selected = key
             
         if event.type == pygame.KEYDOWN:
             if self.selected and not ctrl_pressed:
                 if event.key == pygame.K_BACKSPACE:
-                    if self.selected.label > 0:
-                        self.selected.label = self.selected.label[:-1]
+                    if len(self.labels[self.selected]) > 0:
+                        self.labels[self.selected] = self.labels[self.selected][:-1]
 
                     self.msg = "Modifying label (del)"
                 elif re.match("[A-Za-z]", event.unicode):
-                    if self.selected.label == None:
-                        self.selected.label = str(event.unicode)
+                    if self.labels[self.selected] == None:
+                        self.labels[self.selected] = str(event.unicode)
                     else:
-                        self.selected.label += str(event.unicode)
+                        self.labels[self.selected] += str(event.unicode)
 
                     self.msg = "Modifying label ({0})".format(event.unicode)
-
+                elif event.key == pygame.K_RIGHTBRACKET:
+                    self.geoms[self.labels[self.selected]][0] += 1
+                elif event.key == pygame.K_LEFTBRACKET:
+                    self.geoms[self.labels[self.selected]][0] = max(1, self.geoms[self.labels[self.selected]][0] - 1)
+                elif event.key == pygame.K_QUOTE:
+                    self.geoms[self.labels[self.selected]][1] += 1
+                elif event.key == pygame.K_SEMICOLON:
+                    self.geoms[self.labels[self.selected]][1] = max(1, self.geoms[self.labels[self.selected]][1] - 1)
+                
             if event.key in [pygame.K_ESCAPE, pygame.K_RETURN]:
                 self.selected = None
             elif event.key == pygame.K_DELETE:
                 if self.selected:
-                    if self.selected.delete(g.f):
-                        self.msg = "Removing keyframe"
-                        print "Removing keyframe from selected marker"
-                    else:
-                        self.msg = "No keyframe in frame"
-                        print "No keyframes at current frame! (only teal selections can be deleted -- not purple)"
-
-                    if len(self.selected.fs) == 0:
-                        self.rects.remove(self.selected)
-                        self.selected = None
-
-                        self.msg = "Removing marker"
-                        print "No keyframes left in marker... Removing marker"
+                    del self.labels[self.selected]
+                    self.selected = None
+                    self.msg = "Removing label"
+                    print "Removing label"
                 else:
                     self.msg = "No marker selected!"
                     print self.msg
@@ -111,50 +90,40 @@ class Annotator(object):
 
         surf = pygame.surfarray.make_surface(numpy.rollaxis(frame, 1, 0))
 
-        for rect in self.rects:
-            if rect.interpolated(g.f) or rect == self.selected:
-                color = [255, 0, 0]
-            else:
+        for (f, loc), label in self.labels.iteritems():
+            if f != g.f:
                 continue
 
-            (x, y), (w, h), rtype = rect.sample(g.f)
-            
-            x = int(x)
-            y = int(y)
-            w = int(w)
-            h = int(h)
-            
-            if rtype == Rect.KEYFRAME:
-                color = [0, 255, 0]
-
-            if rtype == Rect.EXTRAPOLATE:
-                color = [150, 150, 150]
-                
-            if rect == self.selected:
-                color[2] = 255
-
-            if rect.label != None:
-                label = g.font.render(rect.label, 1, (255, 255, 255))
+            if label != None:
+                lsize = g.font.size(label)
+                rlabel = g.font.render(label, 1, (255, 255, 255))
             else:
-                label = g.font.render("no label", 1, (255, 0, 255))
+                lsize = g.font.size("no label")
+                rlabel = g.font.render("no label", 1, (255, 0, 255))
 
-            if rtype != Rect.EXTRAPOLATE or rect == self.selected:
-                width = 1 if rtype == Rect.EXTRAPOLATE else 4
+            lx, ly = loc
 
-                li = y / 16
-                lj = x / 16
+            lxo = (self.geoms[label][0] - 1) / 2
+            lyo = (self.geoms[label][1] - 1) / 2
 
-                ri = (y + h) / 16
-                rj = (x + w) / 16
+            li, lj = ly - lyo, lx - lxo
 
-                for xx in range(lj * 16, (rj + 1) * 16 + 1, 16):
-                    pygame.draw.line(surf, (255, 255, 255), (xx, li * 16), (xx, (ri + 1) * 16), 1)
+            ri = li + self.geoms[label][1]
+            rj = lj + self.geoms[label][0]
 
-                for yy in range(li * 16, (ri + 1) * 16 + 1, 16):
-                    pygame.draw.line(surf, (255, 255, 255), (lj * 16, yy), ((rj + 1) * 16, yy), 1)
+            if (f, loc) == self.selected:
+                color = [0, 255, 255]
+            else:
+                color = [255, 255, 255]
 
-                pygame.draw.rect(surf, color, ((x, y), (w, h)), width)
-                surf.blit(label, (x, y - 15))
+            for xx in [lj * self.b, rj * self.b]:#range(lj * self.b, rj * self.b + 1, self.b):
+                pygame.draw.line(surf, color, (xx, li * self.b), (xx, ri * self.b), 1)
+
+            for yy in [li * self.b, ri * self.b]:#range(li * self.b, ri * self.b + 1, self.b):
+                pygame.draw.line(surf, color, (lj * self.b, yy), (rj * self.b, yy), 1)
+
+            pygame.draw.rect(surf, color, ((lx * self.b, ly * self.b), (self.b, self.b)), 2)
+            surf.blit(rlabel, (lx * self.b - lsize[0] / 2 + self.b / 2, li * self.b - lsize[1]))
 
         g.screen.blit(surf.convert(), (0, 0))
 
@@ -163,11 +132,15 @@ class Annotator(object):
         lines.append("Frames: {0} / {1}".format(g.f, g.F))
         lines.append("")
 
-        if self.selected:
-            lines.append("Keyframes: ")
-            for f_ in self.selected.fs:
-                lines.append("{0}".format(f_))
+        lines.append("Labels: ")
+        count = collections.Counter()
+        for label in self.labels.values():
+            count[label] += 1
 
+        for label in count:
+            lines.append("{0} : {1}".format(label, count[label]))
+            
+        if self.selected:
             lines.append("")
             lines.append("Type a-z to label")
             lines.append("Del deletes keyframe")
@@ -177,7 +150,9 @@ class Annotator(object):
         lines.append("")
         lines.append("Ctrl-s saves")
         lines.append("Arrows change frame")
-        lines.append("+/- adjust frame step")
+        lines.append("[, ] shrink/grow x-geom")
+        lines.append(";,' shrink/grow y-geom")
+        lines.append("+, - adjust frame step")
         lines.append("Ctrl-arrows fast jump")
 
         lines.append("")
