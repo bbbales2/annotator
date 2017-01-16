@@ -50,18 +50,18 @@ class GoogleNet(Network):
                    'inception_3b_5x5',
                    'inception_3b_pool_proj')
              .concat(3, name='inception_3b_output')
-             #.max_pool(3, 3, 2, 2, name='pool3_3x3_s2')
+             .max_pool(3, 3, 2, 2, name='pool3_3x3_s2')#
              .conv(1, 1, 192, 1, 1, name='inception_4a_1x1'))
 
-        (self.feed('inception_3b_output')#'pool3_3x3_s2')
+        (self.feed('pool3_3x3_s2')#inception_3b_output')#'
              .conv(1, 1, 96, 1, 1, name='inception_4a_3x3_reduce')
              .conv(3, 3, 208, 1, 1, name='inception_4a_3x3'))
 
-        (self.feed('inception_3b_output')#'pool3_3x3_s2')
+        (self.feed('pool3_3x3_s2')#inception_3b_output')#'
              .conv(1, 1, 16, 1, 1, name='inception_4a_5x5_reduce')
              .conv(5, 5, 48, 1, 1, name='inception_4a_5x5'))
 
-        (self.feed('inception_3b_output')#'pool3_3x3_s2')
+        (self.feed('pool3_3x3_s2')#inception_3b_output')#'
              .max_pool(3, 3, 1, 1, name='inception_4a_pool')
              .conv(1, 1, 64, 1, 1, name='inception_4a_pool_proj'))
 
@@ -146,18 +146,18 @@ class GoogleNet(Network):
                    'inception_4e_5x5',
                    'inception_4e_pool_proj')
              .concat(3, name='inception_4e_output')
-             .max_pool(3, 3, 2, 2, name='pool4_3x3_s2')
+             #.max_pool(3, 3, 2, 2, name='pool4_3x3_s2')
              .conv(1, 1, 256, 1, 1, name='inception_5a_1x1'))
 
-        (self.feed('pool4_3x3_s2')#'inception_4e_output')
+        (self.feed('inception_4e_output')#pool4_3x3_s2')#'
              .conv(1, 1, 160, 1, 1, name='inception_5a_3x3_reduce')
              .conv(3, 3, 320, 1, 1, name='inception_5a_3x3'))
 
-        (self.feed('pool4_3x3_s2')#'inception_4e_output')
+        (self.feed('inception_4e_output')#pool4_3x3_s2')#'
              .conv(1, 1, 32, 1, 1, name='inception_5a_5x5_reduce')
              .conv(5, 5, 128, 1, 1, name='inception_5a_5x5'))
 
-        (self.feed('pool4_3x3_s2')#'inception_4e_output')
+        (self.feed('inception_4e_output')#pool4_3x3_s2')#'
              .max_pool(3, 3, 1, 1, name='inception_5a_pool')
              .conv(1, 1, 128, 1, 1, name='inception_5a_pool_proj'))
 
@@ -185,5 +185,5 @@ class GoogleNet(Network):
                    'inception_5b_5x5',
                    'inception_5b_pool_proj')
              .concat(3, name='inception_5b_output')
-             .avg_pool(7, 7, 1, 1, padding='VALID', name='pool5_7x7_s1')
+             .avg_pool(3, 1, 1, 1, name='pool5_7x7_s1')#, padding='VALID'
              .fc(1000, relu=False, name='loss3_classifier'))
