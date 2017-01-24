@@ -11,6 +11,7 @@ import pickle
 import matplotlib.pyplot as plt
 import annotate
 import traceback
+import skimage.io
 
 pygame.init()
 
@@ -19,24 +20,25 @@ import argparse
 from rect import Rect
 
 parser = argparse.ArgumentParser(description='Process some integers.')
-parser.add_argument('video', help = 'Path to video file (preferably .mp4) that contains frames to be annotated')
+parser.add_argument('fileList', help = 'Path to text file with newline separated paths to images to be annotated')
 parser.add_argument('annotationFile', help = 'File that will hold the project annotations')
 
 args = parser.parse_args()
 
-vid = imageio.get_reader(args.video, 'ffmpeg')
+class File(object):
+    def __init__(self, path = None, im = None):
+        self.path = path
+        self.im = im
 
-#print "Reading in video file..."
-#for f in range(F):
-#    vid.get_data(f)
-#print "Done!"
+files = []
+with open(args.fileList) as f:
+    for line in f:
+        line = line.strip()
 
-W, H = vid.get_meta_data()['size']
+        if len(line) > 0 and os.path.exists(line):
+            files.append(File(line, skimage.io.imread(line)))
 
-#print "Loading nn"
-#tf.reset_default_graph()
-
-#print "nn loaded!"
+W, H = 1024, 1024
 
 screen = pygame.display.set_mode((W + 200, H))
 
@@ -47,20 +49,19 @@ font = pygame.font.SysFont("monospace", 15)
 msg = ""
 
 class Global(object):
-    def __init__(self, vid = None, screen = None, W = None, H = None):
-        if vid:
-            self.f = 0
-            self.s = 1
-            self.step_sizes = [1, 5, 10, 15, 25, 50, 100]
-            self.vid = vid
-            self.screen = screen
-            self.selected = None
-            self.F = vid.get_length()
-            self.font = font
-            self.W = W
-            self.H = H
-
-            self.reload()
+    def __init__(self, files, screen, W, H):
+        self.f = 0
+        self.s = 1
+        self.step_sizes = [1, 5, 10, 15, 25, 50, 100]
+        self.files = files
+        self.screen = screen
+        self.selected = None
+        self.F = len(files)
+        self.font = font
+        self.W = W
+        self.H = H
+        
+        self.reload()
 
     def handle(self, event):
         ctrl_pressed = pygame.key.get_mods() & (pygame.KMOD_RCTRL | pygame.KMOD_LCTRL)
@@ -145,12 +146,12 @@ class Global(object):
             traceback.print_exc()
 
     def draw(self):
-        try:
+        #try:
             surf = self.selected.draw(self)
 
             #self.screen.blit(surf, (0, 0))
-        except Exception as e:
-            traceback.print_exc()
+        #except Exception as e:
+        #    traceback.print_exc()
 
     def reload(self):
         try:
@@ -170,7 +171,7 @@ class Global(object):
             raise e
             #traceback.print_exc()
  
-g = Global(vid, screen, W, H)
+g = Global(files, screen, W, H)
 
 while 1:
     for event in pygame.event.get():

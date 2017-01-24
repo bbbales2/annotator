@@ -3,6 +3,8 @@ from rect import Rect
 import numpy
 import re
 import collections
+import os
+import matplotlib.pyplot as plt
 
 def defaultGeom():
     return [1, 1]
@@ -10,32 +12,42 @@ def defaultGeom():
 def defaultLabel():
     return None
 
+class Annotation(object):
+    # Args: frane #, x pos, y pos, label, radius of marker
+    def __init__(self, f, x, y, label, r = 1):
+        self.f = f
+        self.y = y
+        self.x = x
+        self.label = label
+        self.r = r
+
 class Annotator(object):
     def __init__(self):
         self.selected = None
         self.msg = ""
-        self.b = 16
-        self.geoms = collections.defaultdict(defaultGeom)
-        self.labels = collections.defaultdict(defaultLabel) #1D, keyed by (frame, (i / b, j / b)), value is label
+        self.anns = []
 
     def handle(self, event, g):
         ctrl_pressed = pygame.key.get_mods() & (pygame.KMOD_RCTRL | pygame.KMOD_LCTRL)
 
         if event.type == pygame.MOUSEBUTTONUP:
-            bx = event.pos[0] / self.b
-            by = event.pos[1] / self.b
+            x = event.pos[0]
+            y = event.pos[1]
 
-            key = (g.f, (bx, by))
+            did_selection = False
+            for ann in self.anns:
+                if numpy.sqrt((ann.x - x)**2 + (ann.y - y)**2) <= ann.r:
+                    did_selection = True
 
-            if key in self.labels:
-                self.msg = "Selecting element"
-                print self.msg
+                    self.selected = ann
 
-                self.selected = key
-            else:
-                if self.selected and self.selected[0] == g.f:
+            if not did_selection:
+                if self.selected and self.selected.f == g.f:
                     self.msg = "Moving element"
                     print self.msg
+                    
+                    self.selected.x = x
+                    self.selected.y = y
 
                     self.labels[key] = self.labels[self.selected]
                     del self.labels[self.selected]
@@ -86,10 +98,14 @@ class Annotator(object):
                     print self.msg
 
     def draw(self, g):
-        frame = g.vid.get_data(g.f)
+        fname = g.files[g.f].path
+        frame = (255 * plt.cm.Greys(g.files[g.f].im)[:, :, :3]).astype('uint8')
 
         surf = pygame.surfarray.make_surface(numpy.rollaxis(frame, 1, 0))
 
+        pygame.display.set_caption(fname)
+
+        """
         for (f, loc), label in self.labels.iteritems():
             if f != g.f:
                 continue
@@ -124,7 +140,7 @@ class Annotator(object):
 
             pygame.draw.rect(surf, color, ((lx * self.b, ly * self.b), (self.b, self.b)), 2)
             surf.blit(rlabel, (lx * self.b - lsize[0] / 2 + self.b / 2, li * self.b - lsize[1]))
-
+"""
         g.screen.blit(surf.convert(), (0, 0))
 
         lines = []
@@ -150,8 +166,6 @@ class Annotator(object):
         lines.append("")
         lines.append("Ctrl-s saves")
         lines.append("Arrows change frame")
-        lines.append("[, ] shrink/grow x-geom")
-        lines.append(";,' shrink/grow y-geom")
         lines.append("+, - adjust frame step")
         lines.append("Ctrl-arrows fast jump")
 
