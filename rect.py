@@ -14,14 +14,14 @@ class Rect(object):
         self.h = h
         self.label = None
 
-    def contains(self, f, x, y):
+    def contains(self, f, (x, y)):
         if self.f == f:
             if (self.x <= x and x <= self.x + self.w) and (self.y <= y and y <= self.y + self.h):
                 return True
 
         return False
 
-    def move(self, x, y):
+    def move(self, (x, y)):
         if numpy.abs(x - self.x) < numpy.abs(x - (self.x + self.w)):
             self.w = self.w - (x - self.x)
             self.x = x
@@ -34,7 +34,7 @@ class Rect(object):
         else:
             self.h = y - self.y
 
-    def setSecondCorner(self, f, x, y):
+    def setSecondCorner(self, (x, y)):
         if numpy.abs(x - self.x) < numpy.abs(x - (self.x + self.w)):
             self.w = self.x + self.w - x
             self.x = x

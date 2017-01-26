@@ -9,11 +9,12 @@ import argparse
 import imageio
 import pickle
 import matplotlib.pyplot as plt
+
+pygame.init()
+
 import annotate
 import traceback
 import skimage.io
-
-pygame.init()
 
 import argparse
 
@@ -177,7 +178,7 @@ while 1:
     for event in pygame.event.get():
         g.handle(event)
 
-    clock.tick(50)
+    clock.tick(20)
 
     screen.fill((0, 0, 0))
 

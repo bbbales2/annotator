@@ -13,16 +13,19 @@ def defaultGeom():
 def defaultLabel():
     return None
 
-class Marker(object):
+tfont = pygame.font.SysFont("monospace", 15)
+lfont = pygame.font.Font(pygame.font.match_font('monospace', bold = True), 15)
+
+class Circle(object):
     # Args: frane #, x pos, y pos, label, radius of marker
-    def __init__(self, f, x, y, r, label):
+    def __init__(self, f, (x, y), r, label):
         self.f = f
         self.y = y
         self.x = x
         self.label = label
         self.r = r
 
-    def contains(self, f, x, y):
+    def contains(self, f, (x, y)):
         if self.f != f:
             return False
 
@@ -31,7 +34,7 @@ class Marker(object):
         else:
             return False
 
-    def move(self, x, y):
+    def move(self, (x, y)):
         self.x = x
         self.y = y
 
@@ -40,43 +43,21 @@ class Annotator(object):
         self.selected = None
         self.msg = ""
         self.markers = []
-        self.tfont = pygame.font.SysFont("monospace", 15)
-        self.lfont = pygame.font.Font(pygame.font.match_font('monospace', bold = True), 15)
         self.resize = False
+        self.mode = 'circle'
 
     def handle(self, event, g):
         ctrl_pressed = pygame.key.get_mods() & (pygame.KMOD_RCTRL | pygame.KMOD_LCTRL)
 
         if event.type == pygame.MOUSEMOTION:
             if self.resize == True and type(self.selected) == Rect:
-                if self.selected and self.selected.keyframe(g.f):
-                    self.selected.setSecondCorner(g.f, event.pos)
+                if self.selected and self.selected.f == g.f:
+                    self.selected.setSecondCorner(event.pos)
                 else:
                     self.resize = False
 
                     self.msg = "Done resizing"
-
-        elif event.type == pygame.MOUSEBUTTONDOWN and event.type == 1:
-            x = event.pos[0]
-            y = event.pos[1]
-
-            if not self.selected:
-                if not self.selected:
-                    self.msg = "Adding keyframe"
-
-                    print "Adding new keyframe"
-
-                    self.selected = Rect(g.f, event.pos, (1, 1))
-
-                    self.rects.append(self.selected)
-            else:
-                    self.msg = "Resizing keyframe"
-
-                    print "Moving keyframe in currently selected marker"
-
-                    self.selected.move(g.f, event.pos)
-
-                self.resize = True
+                    print self.msg
 
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1 or event.button == 3:
@@ -85,28 +66,26 @@ class Annotator(object):
 
                 did_selection = False
                 if event.button == 1:
-                    for obj in itertools.chain(self.markers, self.rects):
-                        if obj.f != g.f:
-                            continue
-
-                        if self.selected.contains(g.f, x, y):
-                            did_selection = True
-                        
-                            self.selected = obj
-
-                            self.msg = "Selecting marker"
-                            print self.msg
-
-                            break
+                    for obj in self.markers:
+                        if (type(obj) == Circle and self.mode == "circle") or (type(obj) == Rect and self.mode == "rectangle"):
+                            if obj.contains(g.f, (x, y)):
+                                did_selection = True
+                                
+                                self.selected = obj
+                                
+                                self.msg = "Selecting marker"
+                                print self.msg
+                                
+                                break
 
                 if not did_selection:
                     if self.selected and self.selected.f == g.f and event.button == 1:
                         self.msg = "Moving element"
 
-                        self.selected.move(x, y)
+                        self.selected.move((x, y))
 
                         if type(self.selected) == Rect:
-                            self.msg = "Resizing keyframe"
+                            self.msg = "Resizing rect"
 
                             self.resize = True
 
@@ -116,18 +95,18 @@ class Annotator(object):
                         print self.msg
 
                         # copy from selected marker
-                        if self.mode = 'circle':
+                        if self.mode == 'circle':
                             if self.selected:
                                 label = self.selected.label
                             else:
                                 label = None
                                 
-                            if self.selected and type(self.selected) == Marker:
+                            if self.selected and type(self.selected) == Circle:
                                 r = self.selected.r
                             else:
                                 r = 20
                                 
-                            self.selected = Marker(g.f, x, y, label, r)
+                            self.selected = Circle(g.f, (x, y), r, label)
 
                             self.markers.append(self.selected)
                         else:
@@ -136,14 +115,10 @@ class Annotator(object):
                             else:
                                 label = None
 
-                            if self.selected and type(self.selected) == Rect:
-                                w = self.selected.w
-                                h = self.selected.h
-                            else:
-                                w = 1
-                                h = 1
+                            w = 1
+                            h = 1
                     
-                            self.selected = Rect(g.f, (x, y), label, (w, h))
+                            self.selected = Rect(g.f, (x, y), (w, h), label)
 
                             self.markers.append(self.selected)
                     
@@ -156,16 +131,31 @@ class Annotator(object):
 
         if event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 4:
-                if self.selected:
+                if self.selected and type(self.selected) == Circle:
                     self.selected.r = min(200, self.selected.r + 2)
                     self.msg = "Grow marker"
                     print self.msg
             elif event.button == 5:
-                if self.selected:
+                if self.selected and type(self.selected) == Circle:
                     self.selected.r = max(10, self.selected.r - 2)
                     self.msg = "Shrink marker"
                     print self.msg
 
+        if event.type == pygame.KEYUP:
+            if ctrl_pressed:
+                if event.key == pygame.K_1:
+                    self.mode = "circle"
+
+                    self.msg = "Switched to circles"
+                    print self.msg
+                elif event.key == pygame.K_2:
+                    self.mode = "rectangle"
+
+                    self.msg = "Switched to rectangles"
+                    print self.msg
+
+                self.selected = None
+                
         if event.type == pygame.KEYDOWN:
             if self.selected and not ctrl_pressed:
                 if event.key == pygame.K_BACKSPACE:
@@ -201,28 +191,34 @@ class Annotator(object):
 
         surf = pygame.surfarray.make_surface(numpy.rollaxis(frame, 1, 0)).convert_alpha()
 
-        pygame.display.set_caption(fname)
+        pygame.display.set_caption("{0} add mode, {1}".format(self.mode, fname))
 
         for marker in self.markers:
             if marker.f != g.f:
                 continue
 
             if marker.label != None:
-                lsize = self.lfont.size(marker.label)
-                rlabel = self.lfont.render(marker.label, 1, (255, 0, 100))
+                lsize = lfont.size(marker.label)
+                rlabel = lfont.render(marker.label, 1, (255, 0, 100))
             else:
-                lsize = self.lfont.size("no label")
-                rlabel = self.lfont.render("no label", 1, (255, 0, 255))
+                lsize = lfont.size("no label")
+                rlabel = lfont.render("no label", 1, (255, 0, 255))
 
             if marker == self.selected:
                 color = [255, 0, 0]
             else:
                 color = [200, 100, 0]
 
-            pygame.draw.circle(surf, color, (marker.x, marker.y), marker.r, 2)
+            if type(marker) == Circle:
+                pygame.draw.circle(surf, color, (marker.x, marker.y), marker.r, 3)
 
-            lx = marker.x - lsize[0] / 2
-            ly = marker.y - marker.r - lsize[1]
+                lx = marker.x - lsize[0] / 2
+                ly = marker.y - marker.r - lsize[1]
+            else:
+                pygame.draw.rect(surf, color, ((marker.x, marker.y), (marker.w, marker.h)), 3)
+
+                lx = marker.x + marker.w / 2 - lsize[0] / 2
+                ly = marker.y - lsize[1]
 
             tbackground = pygame.Surface((lsize[0] + 4, lsize[1]))
             tbackground.set_alpha(128)
@@ -262,11 +258,13 @@ class Annotator(object):
         lines.append("Arrows change frame")
         lines.append("+, - adjust frame step")
         lines.append("Ctrl-arrows fast jump")
+        lines.append("Ctrl-1 switches to circles")
+        lines.append("Ctrl-2 switches to rectangles")
 
         lines.append("")
         lines.append(self.msg)
 
         for i, line in enumerate(lines):
-            label = self.tfont.render(line, 1, (255, 255, 255))
+            label = tfont.render(line, 1, (255, 255, 255))
             g.screen.blit(label, (g.W, 15 * i))
 
