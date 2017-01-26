@@ -18,8 +18,6 @@ import skimage.io
 
 import argparse
 
-from rect import Rect
-
 parser = argparse.ArgumentParser(description='Process some integers.')
 parser.add_argument('fileList', help = 'Path to text file with newline separated paths to images to be annotated')
 parser.add_argument('annotationFile', help = 'File that will hold the project annotations')

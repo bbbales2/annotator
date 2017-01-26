@@ -1,5 +1,5 @@
 import pygame
-from rect import Rect
+from markers import Rect, Circle
 import numpy
 import re
 import collections
@@ -15,28 +15,6 @@ def defaultLabel():
 
 tfont = pygame.font.SysFont("monospace", 15)
 lfont = pygame.font.Font(pygame.font.match_font('monospace', bold = True), 15)
-
-class Circle(object):
-    # Args: frane #, x pos, y pos, label, radius of marker
-    def __init__(self, f, (x, y), r, label):
-        self.f = f
-        self.y = y
-        self.x = x
-        self.label = label
-        self.r = r
-
-    def contains(self, f, (x, y)):
-        if self.f != f:
-            return False
-
-        if numpy.sqrt((self.x - x)**2 + (self.y - y)**2) <= self.r:
-            return True
-        else:
-            return False
-
-    def move(self, (x, y)):
-        self.x = x
-        self.y = y
 
 class Annotator(object):
     def __init__(self):
