@@ -6,107 +6,43 @@ class Rect(object):
     INTERPOLATE = 2
     EXTRAPOLATE = 3
 
-    def __init__(self, f, (x, y), (w, h)):
-        self.fs = [f]
-        self.xs = [x]
-        self.ys = [y]
-        self.ws = [w]
-        self.hs = [h]
-        self.resize = False
+    def __init__(self, f, (x, y), (w, h), label):
+        self.f = f
+        self.x = x
+        self.y = y
+        self.w = w
+        self.h = h
         self.label = None
 
-    def add(self, f, (x, y), (w, h)):
-        i = bisect.bisect_left(self.fs, f)
-
-        if i != len(self.fs) and f == self.fs[i]:
-            self.xs[i] = x
-            self.ys[i] = y
-        else:
-            self.fs.insert(i, f)
-            self.xs.insert(i, x)
-            self.ys.insert(i, y)
-            self.ws.insert(i, w)
-            self.hs.insert(i, h)
-
-    def keyframe(self, f):
-        i = bisect.bisect_left(self.fs, f)
-
-        if i != len(self.fs) and f == self.fs[i]:
-            return True
-
-        return False
-
-    def interpolated(self, f):
-        if f >= self.fs[0] and f <= self.fs[-1]:
-            return True
-        else:
-            return False
-
-    def contains(self, f, (x, y)):
-        if self.interpolated(f):
-            (x_, y_), (w, h), keyframe = self.sample(f)
-
-            if (x_ <= x and x <= x_ + w) and (y_ <= y and y <= y_ + h):
+    def contains(self, f, x, y):
+        if self.f == f:
+            if (self.x <= x and x <= self.x + self.w) and (self.y <= y and y <= self.y + self.h):
                 return True
 
         return False
 
-    def move(self, f, (x, y)):
-        i = bisect.bisect_left(self.fs, f)
-
-        if numpy.abs(x - self.xs[i]) < numpy.abs(x - (self.xs[i] + self.ws[i])):
-            self.ws[i] = self.ws[i] - (x - self.xs[i])
-            self.xs[i] = x
+    def move(self, x, y):
+        if numpy.abs(x - self.x) < numpy.abs(x - (self.x + self.w)):
+            self.w = self.w - (x - self.x)
+            self.x = x
         else:
-            self.ws[i] = x - self.xs[i]
+            self.w = x - self.x
 
-        if numpy.abs(y - self.ys[i]) < numpy.abs(y - (self.ys[i] + self.hs[i])):
-            self.hs[i] = self.hs[i] - (y - self.ys[i])
-            self.ys[i] = y
+        if numpy.abs(y - self.y) < numpy.abs(y - (self.y + self.h)):
+            self.h = self.h - (y - self.y)
+            self.y = y
         else:
-            self.hs[i] = y - self.ys[i]
+            self.h = y - self.y
 
-    def setSecondCorner(self, f, (x, y)):
-        i = bisect.bisect_left(self.fs, f)
-
-        if numpy.abs(x - self.xs[i]) < numpy.abs(x - (self.xs[i] + self.ws[i])):
-            self.ws[i] = self.xs[i] + self.ws[i] - x
-            self.xs[i] = x
+    def setSecondCorner(self, f, x, y):
+        if numpy.abs(x - self.x) < numpy.abs(x - (self.x + self.w)):
+            self.w = self.x + self.w - x
+            self.x = x
         else:
-            self.ws[i] = x - self.xs[i]
+            self.w = x - self.x
 
-        if numpy.abs(y - self.ys[i]) < numpy.abs(y - (self.ys[i] + self.hs[i])):
-            self.hs[i] = self.ys[i] + self.hs[i] - y
-            self.ys[i] = y
+        if numpy.abs(y - self.y) < numpy.abs(y - (self.y + self.h)):
+            self.h = self.y + self.h - y
+            self.y = y
         else:
-            self.hs[i] = y - self.ys[i]
-
-    def delete(self, f):
-        i = bisect.bisect_left(self.fs, f)
-
-        if i != len(self.fs) and f == self.fs[i]:
-            self.fs.pop(i)
-            self.xs.pop(i)
-            self.ys.pop(i)
-            self.ws.pop(i)
-            self.hs.pop(i)
-
-            return True
-        else:
-            return False
-
-    def sample(self, f):
-        x = int(numpy.round(numpy.interp([f], self.fs, self.xs)))
-        y = int(numpy.round(numpy.interp([f], self.fs, self.ys)))
-        w = int(numpy.round(numpy.interp([f], self.fs, self.ws)))
-        h = int(numpy.round(numpy.interp([f], self.fs, self.hs)))
-        
-        if f in self.fs:
-            return (x, y), (w, h), Rect.KEYFRAME
-        elif f > self.fs[0] and f < self.fs[-1]:
-            return (x, y), (w, h), Rect.INTERPOLATE
-        elif f < self.fs[0]:
-            return (self.xs[0], self.ys[0]), (self.ws[0], self.hs[0]), Rect.EXTRAPOLATE
-        elif f > self.fs[-1]:
-            return (self.xs[-1], self.ys[-1]), (self.ws[-1], self.hs[-1]), Rect.EXTRAPOLATE
-
+            self.h = y - self.y

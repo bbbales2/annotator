@@ -72,8 +72,8 @@ class Global(object):
             if event.key == pygame.K_RIGHT:
                 if ctrl_pressed:
                     fs = []
-                    for f, _ in self.ann.labels:
-                        fs.append(f)
+                    for marker in self.ann.markers:
+                        fs.append(marker.f)
 
                     fs = sorted(fs)
 
@@ -90,8 +90,8 @@ class Global(object):
             elif event.key == pygame.K_LEFT:
                 if ctrl_pressed:
                     fs = []
-                    for f, _ in self.ann.labels:
-                        fs.append(f)
+                    for marker in self.ann.markers:
+                        fs.append(marker.f)
 
                     fs = sorted(fs)
 
