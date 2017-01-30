@@ -13,8 +13,11 @@ def defaultGeom():
 def defaultLabel():
     return None
 
-tfont = pygame.font.SysFont("monospace", 15)
-lfont = pygame.font.Font(pygame.font.match_font('monospace', bold = True), 15)
+try:
+    tfont = pygame.font.SysFont("monospace", 15)
+    lfont = pygame.font.Font(pygame.font.match_font('monospace', bold = True), 15)
+except:
+    print "Fonts failed to load, Annotation draw won't work (okay for training)"
 
 class Annotator(object):
     def __init__(self):
@@ -43,6 +46,8 @@ class Annotator(object):
                 y = event.pos[1]
 
                 did_selection = False
+                old_selection = self.selected
+
                 if event.button == 1:
                     for obj in self.markers:
                         if (type(obj) == Circle and self.mode == "circle") or (type(obj) == Rect and self.mode == "rectangle"):
@@ -55,6 +60,10 @@ class Annotator(object):
                                 print self.msg
                                 
                                 break
+
+                # If just clicked same thing we already had selected, do move instead
+                if did_selection and self.selected == old_selection:
+                    did_selection = False
 
                 if not did_selection:
                     if self.selected and self.selected.f == g.f and event.button == 1:
@@ -165,7 +174,11 @@ class Annotator(object):
 
     def draw(self, g):
         fname = g.files[g.f].path
-        frame = (255 * plt.cm.Greys(g.files[g.f].im)[:, :, :3]).astype('uint8')
+
+        if len(g.files[g.f].im.shape) == 2:
+            frame = (255 * plt.cm.Greys(g.files[g.f].im)[:, :, :3]).astype('uint8')
+        else:
+            frame = g.files[g.f].im
 
         surf = pygame.surfarray.make_surface(numpy.rollaxis(frame, 1, 0)).convert_alpha()
 

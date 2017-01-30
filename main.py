@@ -19,8 +19,9 @@ import skimage.io
 import argparse
 
 parser = argparse.ArgumentParser(description='Process some integers.')
-parser.add_argument('fileList', help = 'Path to text file with newline separated paths to images to be annotated')
+parser.add_argument('file', help = 'Path to video file with frames to annotate')
 parser.add_argument('annotationFile', help = 'File that will hold the project annotations')
+parser.add_argument('--fileList', type = bool, default = False, help = 'Treat file argument as a text file with newline separated paths to images to be annotated instead of video file')
 
 args = parser.parse_args()
 
@@ -30,14 +31,30 @@ class File(object):
         self.im = im
 
 files = []
-with open(args.fileList) as f:
-    for line in f:
-        line = line.strip()
 
-        if len(line) > 0 and os.path.exists(line):
-            files.append(File(line, skimage.io.imread(line)))
+if args.fileList:
+    with open(args.file) as f:
+        for line in f:
+            line = line.strip()
+            
+            if len(line) > 0 and os.path.exists(line):
+                files.append(File(line, skimage.io.imread(line)))
 
-W, H = 1024, 1024
+    # TODO: Need to allow any resolution
+    W, H = 1024, 1024
+else:
+    vid = imageio.get_reader(args.file, 'ffmpeg')
+
+    W, H = vid.get_meta_data()['size']
+
+    F = vid.get_length()
+    for i, frame in enumerate(vid):
+        if i > 100:
+            break
+
+        files.append(File('{0}, frame = {1}'.format(args.file, i), frame))
+
+        print "Reading frame {0} / {1}".format(i, F)
 
 screen = pygame.display.set_mode((W + 200, H))
 
