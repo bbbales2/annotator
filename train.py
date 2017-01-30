@@ -90,35 +90,59 @@ Xs = collections.defaultdict(list)
 # This will be a list, for each class, of negative example features
 Xns = collections.defaultdict(list)
 
-for m, marker in enumerate(ann.markers):
-    im = files[marker.f].im
+# Sort markers by frame and label
+mbf = {}
+for marker in ann.markers:
+    if marker.f not in mbf:
+        mbf[marker.f] = {}
 
-    #tmp = time.time()
-    feats = sess.run(target, feed_dict = { tens : im.reshape(1, im.shape[0], im.shape[1], im.shape[2]) })[0]
-    print "Processed label {0}/{1}".format(m, len(ann.markers))
-    #time.time() - tmp
-    
-    Xs[marker.label].append(feats[marker.y / 16, marker.x / 16])
-    #Ys[label].append(1)
+    if marker.label not in mbf[marker.f]:
+        mbf[marker.f][marker.label] = []
 
-    n = 0
-    negatives = list()
+    mbf[marker.f][marker.label].append(marker)
 
-    while n < args.negatives:
-        i = numpy.random.randint(0, feats.shape[0])
-        j = numpy.random.randint(0, feats.shape[1])
+m = 0
+for frame, mbl in mbf.iteritems():
+    for label, markersTmp in mbl.iteritems():
+        for marker in markersTmp:
+            im = files[frame].im
 
-        # TODO: This might label other positive samples in the same frame as negatives!
-        if (i, j) not in negatives and not marker.contains(marker.f, (j * 16 + 8, i * 16 + 8)):
-            Xns[marker.label].append(feats[i, j])
-            n += 1
+            #tmp = time.time()
+            feats = sess.run(target, feed_dict = { tens : im.reshape(1, im.shape[0], im.shape[1], im.shape[2]) })[0]
+            #time.time() - tmp
             
-            negatives.append((i, j))
+            Xs[label].append(feats[marker.y / 16, marker.x / 16])
+            #Ys[label].append(1)
+            
+            n = 0
+            negatives = list()
+            
+            while n < args.negatives:
+                i = numpy.random.randint(0, feats.shape[0])
+                j = numpy.random.randint(0, feats.shape[1])
+            
+                if (i, j) not in negatives:
+                    is_negative = True
 
-        nys, nxs = zip(*negatives)
+                    # If the random proposal lands in this marker, or any similarly labeled marker on this frame discard it
+                    for markerTmp in markersTmp:
+                        if markerTmp.contains(frame, (j * 16 + 8, i * 16 + 8)):
+                            is_negative = False
+                            break
+                            
+                    if is_negative:
+                        Xns[label].append(feats[i, j])
+                        n += 1
+            
+                        negatives.append((i, j))
 
-        nys = numpy.array(nys) * 16 + 8
-        nxs = numpy.array(nxs) * 16 + 8
+            m += 1
+            print "Processed label {0} / {1}".format(m, len(ann.markers))
+
+        #nys, nxs = zip(*negatives)
+
+        #nys = numpy.array(nys) * 16 + 8
+        #nxs = numpy.array(nxs) * 16 + 8
 
         #plt.imshow(im)
         #plt.gca().add_artist(plt.Circle((marker.x, marker.y), marker.r, color='r'))
