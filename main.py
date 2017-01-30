@@ -49,8 +49,8 @@ else:
 
     F = vid.get_length()
     for i, frame in enumerate(vid):
-        if i > 100:
-            break
+        #if i > 100:
+        #    break
 
         files.append(File('{0}, frame = {1}'.format(args.file, i), frame))
 
