@@ -107,7 +107,8 @@ for m, marker in enumerate(ann.markers):
     while n < args.negatives:
         i = numpy.random.randint(0, feats.shape[0])
         j = numpy.random.randint(0, feats.shape[1])
-        
+
+        # TODO: This might label other positive samples in the same frame as negatives!
         if (i, j) not in negatives and not marker.contains(marker.f, (j * 16 + 8, i * 16 + 8)):
             Xns[marker.label].append(feats[i, j])
             n += 1
