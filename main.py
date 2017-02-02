@@ -21,7 +21,7 @@ import argparse
 parser = argparse.ArgumentParser(description='Process some integers.')
 parser.add_argument('file', help = 'Path to video file with frames to annotate')
 parser.add_argument('annotationFile', help = 'File that will hold the project annotations')
-parser.add_argument('--fileList', type = bool, default = False, help = 'Treat file argument as a text file with newline separated paths to images to be annotated instead of video file')
+parser.add_argument('--fileList', action = 'store_true', help = 'Treat file argument as a text file with newline separated paths to images to be annotated instead of video file')
 
 args = parser.parse_args()
 
