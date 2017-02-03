@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches
 import time
 import collections
+import skimage.io
 
 import argparse
 
@@ -20,7 +21,7 @@ parser = argparse.ArgumentParser(description='Train the last layer of a GoogleNe
 parser.add_argument('file', help = 'Path to video file whos frames are labeled')
 parser.add_argument('annotationFile', help = 'File that holds the labels')
 parser.add_argument('classifiersFile', help = 'File that will holds the trained classifiers')
-parser.add_argument('--fileList', type = bool, default = False, help = 'Treat file argument as a text file with newline separated paths to images to be annotated instead of video file')
+parser.add_argument('--fileList', help = 'Treat file argument as a text file with newline separated paths to images to be annotated instead of video file', action = 'store_true')
 parser.add_argument('--negatives', type = int, default = 30, help = 'Number of negative examples to datamine for each positive example')
 
 args = parser.parse_args()
@@ -33,15 +34,24 @@ class File(object):
 files = []
 
 if args.fileList:
+    # TODO: Need to allow any resolution
+    W, H = 1024, 1024
+
     with open(args.file) as f:
         for line in f:
             line = line.strip()
             
             if len(line) > 0 and os.path.exists(line):
-                files.append(File(line, skimage.io.imread(line)))
+                frame = skimage.io.imread(line)
 
-    # TODO: Need to allow any resolution
-    W, H = 1024, 1024
+                frame = numpy.pad(frame, ((0, max(0, 1024 - frame.shape[0])), (0, max(0, 1024 - frame.shape[1]))), mode = 'edge')
+
+                frame = frame[:H, :W]
+
+                if len(frame.shape) == 2:
+                    frame = (255 * plt.cm.Greys(frame)[:, :, :3]).astype('uint8')
+
+                files.append(File(line, frame))
 else:
     vid = imageio.get_reader(args.file, 'ffmpeg')
 
